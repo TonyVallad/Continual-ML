@@ -40,22 +40,21 @@ def test_generate_dataset_without_auth():
     response = client.post("/generate")
     assert response.status_code == 403
 
-def test_retrain_model():
-    """Test model retraining endpoint"""
-    # First generate a dataset
-    client.post("/generate", headers=AUTH_HEADERS)
-    
-    # Then retrain
-    response = client.post("/retrain", headers=AUTH_HEADERS)
+# NOTE: Manual retrain endpoint removed for Day 4 automation
+# Retraining is now fully automated via Prefect - no manual intervention required
+
+def test_automated_retraining_note():
+    """Test that model status indicates automation"""
+    response = client.get("/model-status")
     assert response.status_code == 200
     data = response.json()
-    # Could be either successful retraining or skipped due to performance
-    assert "accuracy" in data or "current_performance" in data
+    assert "automation_note" in data
+    assert "automated" in data["automation_note"].lower()
 
-def test_retrain_without_auth():
-    """Test retraining without authentication should fail"""
-    response = client.post("/retrain")
-    assert response.status_code == 403
+def test_no_manual_retrain_endpoint():
+    """Test that manual retrain endpoint no longer exists"""
+    response = client.post("/retrain", headers=AUTH_HEADERS)
+    assert response.status_code == 404  # Endpoint should not exist
 
 def test_predict_without_model():
     """Test prediction without a trained model should fail"""
@@ -77,9 +76,12 @@ def test_predict_without_model():
 
 def test_predict_with_model():
     """Test prediction with a trained model"""
-    # First generate dataset and train model
+    # Generate dataset first
     client.post("/generate", headers=AUTH_HEADERS)
-    client.post("/retrain", headers=AUTH_HEADERS)
+    
+    # Manually trigger internal retraining for testing
+    from app import retrain_model_internal
+    retrain_model_internal()
     
     # Now test prediction
     response = client.post("/predict", json={"feature1": 1.0, "feature2": 2.0}, headers=AUTH_HEADERS)

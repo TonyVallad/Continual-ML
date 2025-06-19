@@ -93,22 +93,12 @@ def generate_dataset(api_key: str = Depends(verify_api_key)):
         logger.error(f"Dataset generation failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/retrain")
-def retrain_model(api_key: str = Depends(verify_api_key)):
-    """Retrain the model with hot retraining, tracked by MLflow"""
+def retrain_model_internal():
+    """Internal retraining function - called by Prefect automation only"""
     global current_model, model_performance
     
     try:
-        logger.info("Starting model retraining process")
-        
-        # Check current performance first
-        if current_model is not None and model_performance >= PERFORMANCE_THRESHOLD:
-            logger.info(f"Current model performance ({model_performance:.3f}) is above threshold ({PERFORMANCE_THRESHOLD}). Skipping retraining.")
-            return {
-                "message": "Retraining skipped - performance above threshold", 
-                "current_performance": model_performance,
-                "threshold": PERFORMANCE_THRESHOLD
-            }
+        logger.info("Starting automated model retraining process")
         
         # Load data from database
         session = SessionLocal()
@@ -116,12 +106,24 @@ def retrain_model(api_key: str = Depends(verify_api_key)):
         session.close()
         
         if not result:
-            logger.error("No data available for training")
-            raise HTTPException(status_code=400, detail="No data available for training")
-        
-        # Prepare data
-        X = np.array([[row.feature1, row.feature2] for row in result])
-        y = np.array([row.target for row in result])
+            logger.warning("No data available for training - generating default dataset")
+            # Generate default dataset if none exists
+            X, y = make_classification(n_samples=1000, n_features=2, n_redundant=0, 
+                                     n_informative=2, n_clusters_per_class=1, random_state=42)
+            # Store in database
+            session = SessionLocal()
+            for i in range(len(X)):
+                session.execute(dataset_table.insert().values(
+                    feature1=float(X[i][0]),
+                    feature2=float(X[i][1]),
+                    target=int(y[i])
+                ))
+            session.commit()
+            session.close()
+        else:
+            # Prepare data
+            X = np.array([[row.feature1, row.feature2] for row in result])
+            y = np.array([row.target for row in result])
         
         logger.info(f"Training with {len(X)} samples")
         
@@ -151,7 +153,7 @@ def retrain_model(api_key: str = Depends(verify_api_key)):
             
     except Exception as e:
         logger.error(f"Model retraining failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise Exception(f"Retraining failed: {str(e)}")
 
 @app.post("/predict")
 def predict(input_data: PredictionInput, api_key: str = Depends(verify_api_key)):
@@ -160,7 +162,7 @@ def predict(input_data: PredictionInput, api_key: str = Depends(verify_api_key))
     
     if current_model is None:
         logger.warning("Prediction attempted without trained model")
-        raise HTTPException(status_code=400, detail="No model available. Please retrain first.")
+        raise HTTPException(status_code=400, detail="No model available. Please wait for automated retraining.")
     
     try:
         # Prepare input
@@ -189,7 +191,8 @@ def get_model_status():
         "model_trained": current_model is not None,
         "performance": model_performance,
         "threshold": PERFORMANCE_THRESHOLD,
-        "needs_retraining": model_performance < PERFORMANCE_THRESHOLD
+        "needs_retraining": model_performance < PERFORMANCE_THRESHOLD,
+        "automation_note": "Model retraining is fully automated via Prefect - no manual intervention required"
     }
 
 if __name__ == "__main__":

@@ -131,16 +131,35 @@ def main():
                 else:
                     st.error(f"❌ Dataset generation failed: {response}")
         
-        # Retrain Model
-        if st.button("Retrain Model", type="secondary"):
-            with st.spinner("Retraining model..."):
-                status_code, response = make_api_request("/retrain", method="POST")
+        # Automation Status
+        st.markdown("### 🤖 Automated Retraining")
+        st.info("🔄 **Retraining is now fully automated via Prefect!**\n\n"
+                "• ⏰ Checks performance every 30 seconds\n"
+                "• 🎯 Retrains automatically when performance drops below 80%\n"
+                "• 📢 Sends Discord notifications for all events\n"
+                "• 🚫 No manual intervention required")
+        
+        if st.button("View Automation Details", type="secondary"):
+            with st.spinner("Getting automation status..."):
+                status_code, response = make_api_request("/model-status")
                 
                 if status_code == 200:
-                    st.success("✅ Model retrained successfully!")
-                    st.json(response)
+                    st.success("✅ Automation Status Retrieved!")
+                    
+                    # Display automation details
+                    col_a, col_b = st.columns(2)
+                    with col_a:
+                        st.metric("Model Trained", "✅ Yes" if response.get("model_trained") else "❌ No")
+                        st.metric("Performance", f"{response.get('performance', 0):.3f}")
+                    with col_b:
+                        st.metric("Threshold", f"{response.get('threshold', 0.8):.3f}")
+                        needs_retrain = "🔄 Yes" if response.get("needs_retraining") else "✅ No"
+                        st.metric("Needs Retraining", needs_retrain)
+                    
+                    if "automation_note" in response:
+                        st.info(f"ℹ️ {response['automation_note']}")
                 else:
-                    st.error(f"❌ Model retraining failed: {response}")
+                    st.error(f"❌ Could not get automation status: {response}")
     
     st.markdown("---")
     
