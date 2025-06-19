@@ -2,8 +2,8 @@ import random
 import requests
 import os
 from prefect import flow, task
-from prefect.logging import get_run_logger
 from dotenv import load_dotenv
+from loguru import logger
 
 # Load environment variables
 load_dotenv()
@@ -17,7 +17,7 @@ RETRY_DELAY_SECONDS = int(os.getenv("RETRY_DELAY_SECONDS", 1))
 def send_discord_embed(message):
     """Send a message to Discord via webhook"""
     if not DISCORD_WEBHOOK_URL:
-        print("Discord webhook URL not configured - skipping notification")
+        logger.warning("Discord webhook URL not configured - skipping notification")
         return
     
     data = {
@@ -31,14 +31,13 @@ def send_discord_embed(message):
     try:
         response = requests.post(DISCORD_WEBHOOK_URL, json=data)
         response.raise_for_status()
+        logger.success("Discord notification sent successfully")
     except Exception as e:
-        print(f"Failed to send Discord notification: {e}")
+        logger.error(f"Failed to send Discord notification: {e}")
 
 @task(retries=TASK_RETRIES, retry_delay_seconds=RETRY_DELAY_SECONDS)
 def check_random():
     """Generate random number and simulate retraining if < 0.5"""
-    logger = get_run_logger()
-    
     random_value = random.random()
     logger.info(f"Generated random value: {random_value}")
     
@@ -55,7 +54,6 @@ def check_random():
 @flow
 def periodic_check():
     """Periodic check flow that runs the random check"""
-    logger = get_run_logger()
     logger.info("Starting periodic model check...")
     
     try:
@@ -67,4 +65,5 @@ def periodic_check():
 
 if __name__ == "__main__":
     # Serve the flow with configurable interval
+    logger.info(f"Starting periodic check flow with {CHECK_INTERVAL_SECONDS}s interval")
     periodic_check.serve(name="random-check", interval=CHECK_INTERVAL_SECONDS) 

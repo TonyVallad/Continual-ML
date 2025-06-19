@@ -5,6 +5,23 @@ services:
     container_name: fastapi_app
     ports:
       - "8000:8000"
+    environment:
+      - API_KEY=${API_KEY:-default-key-change-me}
+      - PERFORMANCE_THRESHOLD=${PERFORMANCE_THRESHOLD:-0.8}
+    restart: unless-stopped
+
+  streamlit:
+    build: .
+    container_name: streamlit_app
+    command: streamlit run streamlit_app.py --server.port=8501 --server.address=0.0.0.0
+    ports:
+      - "8501:8501"
+    environment:
+      - API_BASE_URL=http://app:8000
+      - API_KEY=${API_KEY:-default-key-change-me}
+      - STREAMLIT_PASSWORD=${STREAMLIT_PASSWORD:-admin123}
+    depends_on:
+      - app
     restart: unless-stopped
 
   uptime-kuma:
