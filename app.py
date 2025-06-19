@@ -125,7 +125,7 @@ def retrain_model(api_key: str = Depends(verify_api_key)):
         
         logger.info(f"Training with {len(X)} samples")
         
-        # Start MLflow tracking
+        # Start MLflow tracking (moved here to prevent hanging during import)
         mlflow.set_experiment("continual_ml")
         with mlflow.start_run():
             # Train model
