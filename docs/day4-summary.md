@@ -23,7 +23,7 @@ As specified in the **Enonce.md**, Day 4 focused on:
 - **Audience**: Technical team and stakeholders
 
 ### **2. Technical Architecture Documentation**
-🏗️ [`docs/technical-architecture.md`](technical-architecture.md)  
+🏗️ [`docs/technical-architecture.md`](technical-architecture.md)
 - **Purpose**: Complete system design reference
 - **Content**: Infrastructure, ML pipeline, API design, security, scalability
 - **Audience**: Developers and system architects
